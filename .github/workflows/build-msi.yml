@@ -30,26 +30,25 @@ jobs:
         run: |
           $app = Get-Content paperplane/paperplane-pdf-organizer/package.json | ConvertFrom-Json
           $version = $app.version
-          $bundlePath = "paperplane/paperplane-pdf-organizer/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi"
-          $bundle = Get-ChildItem $bundlePath -File
-          $msi = $bundle | Where-Object { $_.Extension -eq ".msi" } | Select-Object -First 1
-          $zip = $bundle | Where-Object { $_.Name.EndsWith(".msi.zip") } | Select-Object -First 1
-          if (-not $msi -or -not $zip) { throw "MSI or updater .msi.zip bundle missing in $bundlePath" }
-          $sig = (Get-Content "$($zip.FullName).sig" -Raw).Trim()
-          $encodedName = [Uri]::EscapeDataString($zip.Name)
+          $bundlePath = "paperplane/paperplane-pdf-organizer/src-tauri/target/release/bundle/msi"
+          $msi = Get-ChildItem $bundlePath -Filter "*.msi" -File | Select-Object -First 1
+          if (-not $msi) { throw "MSI missing in $bundlePath" }
+          $signaturePath = "$($msi.FullName).sig"
+          if (-not (Test-Path $signaturePath)) { throw "Signed MSI signature missing: $signaturePath" }
+          $signature = (Get-Content $signaturePath -Raw).Trim()
+          $encodedName = [Uri]::EscapeDataString($msi.Name)
           $url = "https://github.com/aniket-xd/paperplane-pdf-organizer/releases/download/v$version/$encodedName"
           $manifest = @{
             version = $version
             notes = "Paperplane PDF Organizer update $version"
             pub_date = (Get-Date).ToUniversalTime().ToString("o")
             platforms = @{
-              "windows-x86_64" = @{ signature = $sig; url = $url }
+              "windows-x86_64" = @{ signature = $signature; url = $url }
             }
           } | ConvertTo-Json -Depth 8
           Set-Content -Path "paperplane/paperplane-pdf-organizer/latest.json" -Value $manifest -Encoding utf8
           "version=$version" >> $env:GITHUB_OUTPUT
           "msi=$($msi.FullName)" >> $env:GITHUB_OUTPUT
-          "zip=$($zip.FullName)" >> $env:GITHUB_OUTPUT
       - uses: actions/upload-artifact@v7
         with:
           name: Paperplane-PDF-Organizer-Windows-MSI
@@ -68,6 +67,5 @@ jobs:
           prerelease: false
           files: |
             ${{ steps.release.outputs.msi }}
-            ${{ steps.release.outputs.zip }}
-            ${{ steps.release.outputs.zip }}.sig
+            ${{ steps.release.outputs.msi }}.sig
             paperplane/paperplane-pdf-organizer/latest.json
