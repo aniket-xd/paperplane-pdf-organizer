@@ -1,45 +1,36 @@
 name: Build and publish Paperplane update
-
 on:
   workflow_dispatch:
-
 permissions:
   contents: write
-
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
-
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-
       - uses: dtolnay/rust-toolchain@stable
-
       - name: Extract app source
         shell: pwsh
-        run: Expand-Archive -Path paperplane-source-v0.1.1-fix2.zip -DestinationPath paperplane
-
+        run: Expand-Archive -Path paperplane-pdf-organizer-source.zip -DestinationPath paperplane
       - name: Install frontend dependencies
-        working-directory: paperplane
+        working-directory: paperplane/paperplane-pdf-organizer
         run: npm ci --no-audit --no-fund
-
       - name: Build signed MSI and updater bundle
-        working-directory: paperplane
+        working-directory: paperplane/paperplane-pdf-organizer
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         run: npm run tauri -- build --bundles msi
-
       - name: Create updater manifest
         id: release
         shell: pwsh
         run: |
-          $app = Get-Content paperplane/package.json | ConvertFrom-Json
+          $app = Get-Content paperplane/paperplane-pdf-organizer/package.json | ConvertFrom-Json
           $version = $app.version
-          $bundle = Get-ChildItem "paperplane/src-tauri/target/release/bundle/msi" -File
+          $bundle = Get-ChildItem "paperplane/paperplane-pdf-organizer/src-tauri/target/release/bundle/msi" -File
           $msi = $bundle | Where-Object { $_.Extension -eq ".msi" } | Select-Object -First 1
           $zip = $bundle | Where-Object { $_.Name.EndsWith(".msi.zip") } | Select-Object -First 1
           if (-not $msi -or -not $zip) { throw "MSI or updater .msi.zip bundle missing" }
@@ -54,18 +45,16 @@ jobs:
               "windows-x86_64" = @{ signature = $sig; url = $url }
             }
           } | ConvertTo-Json -Depth 8
-          Set-Content -Path "paperplane/latest.json" -Value $manifest -Encoding utf8
+          Set-Content -Path "paperplane/paperplane-pdf-organizer/latest.json" -Value $manifest -Encoding utf8
           "version=$version" >> $env:GITHUB_OUTPUT
           "msi=$($msi.FullName)" >> $env:GITHUB_OUTPUT
           "zip=$($zip.FullName)" >> $env:GITHUB_OUTPUT
-
       - uses: actions/upload-artifact@v7
         with:
           name: Paperplane-PDF-Organizer-Windows-MSI
           path: ${{ steps.release.outputs.msi }}
           if-no-files-found: error
           retention-days: 30
-
       - name: Publish signed update to this repository
         uses: softprops/action-gh-release@v3
         with:
@@ -80,4 +69,4 @@ jobs:
             ${{ steps.release.outputs.msi }}
             ${{ steps.release.outputs.zip }}
             ${{ steps.release.outputs.zip }}.sig
-            paperplane/latest.json
+            paperplane/paperplane-pdf-organizer/latest.json
