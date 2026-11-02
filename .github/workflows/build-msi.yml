@@ -1,0 +1,42 @@
+name: Build Windows MSI
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "paperplane-source.zip"
+      - ".github/workflows/build-msi.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Extract app source
+        shell: pwsh
+        run: Expand-Archive -Path paperplane-source.zip -DestinationPath paperplane
+
+      - name: Install frontend dependencies
+        working-directory: paperplane
+        run: npm install --no-audit --no-fund
+
+      - name: Build MSI
+        working-directory: paperplane
+        run: npm run tauri -- build --bundles msi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Paperplane-PDF-Organizer-Windows-MSI
+          path: paperplane/src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+          retention-days: 30
