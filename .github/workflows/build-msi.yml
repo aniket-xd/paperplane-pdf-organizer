@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -45,7 +45,7 @@ jobs:
           if (-not $msi -or -not $zip) { throw "MSI or updater .msi.zip bundle missing" }
           $sig = (Get-Content "$($zip.FullName).sig" -Raw).Trim()
           $encodedName = [Uri]::EscapeDataString($zip.Name)
-          $url = "https://github.com/aniket-xd/paperplane-pdf-organizer-updates/releases/download/v$version/$encodedName"
+          $url = "https://github.com/aniket-xd/paperplane-pdf-organizer/releases/download/v$version/$encodedName"
           $manifest = @{
             version = $version
             notes = "Paperplane PDF Organizer update $version"
@@ -66,11 +66,11 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish signed update to public updates repository
+      - name: Publish signed update to this repository
         uses: softprops/action-gh-release@v3
         with:
-          repository: aniket-xd/paperplane-pdf-organizer-updates
-          token: ${{ secrets.PAPERPLANE_RELEASE_TOKEN }}
+          repository: aniket-xd/paperplane-pdf-organizer
+          token: ${{ github.token }}
           tag_name: v${{ steps.release.outputs.version }}
           name: Paperplane PDF Organizer v${{ steps.release.outputs.version }}
           target_commitish: main
