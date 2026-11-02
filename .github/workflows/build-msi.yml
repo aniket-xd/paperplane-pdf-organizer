@@ -30,10 +30,11 @@ jobs:
         run: |
           $app = Get-Content paperplane/paperplane-pdf-organizer/package.json | ConvertFrom-Json
           $version = $app.version
-          $bundle = Get-ChildItem "paperplane/paperplane-pdf-organizer/src-tauri/target/release/bundle/msi" -File
+          $bundlePath = "paperplane/paperplane-pdf-organizer/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi"
+          $bundle = Get-ChildItem $bundlePath -File
           $msi = $bundle | Where-Object { $_.Extension -eq ".msi" } | Select-Object -First 1
           $zip = $bundle | Where-Object { $_.Name.EndsWith(".msi.zip") } | Select-Object -First 1
-          if (-not $msi -or -not $zip) { throw "MSI or updater .msi.zip bundle missing" }
+          if (-not $msi -or -not $zip) { throw "MSI or updater .msi.zip bundle missing in $bundlePath" }
           $sig = (Get-Content "$($zip.FullName).sig" -Raw).Trim()
           $encodedName = [Uri]::EscapeDataString($zip.Name)
           $url = "https://github.com/aniket-xd/paperplane-pdf-organizer/releases/download/v$version/$encodedName"
